@@ -9,9 +9,9 @@ const io = require('socket.io')(servers);
 
 const index = require('./routes/index');
 const auth = require('./routes/auths');
-const objects = require('./routes/items');
+const objects = require('./routes/objects');
 const depots = require('./routes/depots');
-const objectsModel = require('./modules/items');
+const objectsModel = require('./modules/objects');
 
 const socketPort = 8333;
 

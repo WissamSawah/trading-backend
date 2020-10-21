@@ -1,4 +1,4 @@
-const items = require("../modules/items.js");
+const objects = require("../modules/objects.js");
 
 var express = require('express');
 var router = express.Router();

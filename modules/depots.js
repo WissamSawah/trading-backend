@@ -1,46 +1,53 @@
+/* eslint-disable camelcase */
+/* eslint-disable max-len */
+
 const db = require("../db/database.js");
 const jwt = require('jsonwebtoken');
 const jwtSecret = "averylongpassword";
 
 const depots = {
-        showDepot: function(res, body, token) {
-            const auth_data = jwt.verify(token, jwtSecret);
-            const email = auth_data.email;
-            var depot_data = [];
+    viewDepot: function(res, body, my_token) {
+        const auth_data = jwt.verify(my_token, jwtSecret);
+        const email = auth_data.email;
+        var depot_contents = [];
 
-            db.each("SELECT u.id as user_id, u.name as username, d.balance, d.id as depot_id, item_id, number_of_items, o.name as objname, o.current_price " +
+        console.log(email);
+
+        db.each("SELECT u.rowid as user_rowid, u.name as username, d.balance, d.rowid as depot_rowid, object_rowid, number_of_objects, o.name as objname, o.current_price " +
             "FROM users u " +
-            "LEFT JOIN depots d ON u.id = d.user_id " +
-            "LEFT JOIN items_in_depot oid ON d.id = oid.depot_id " +
-            "LEFT JOIN items o ON o.id = oid.item_id " +
+            "LEFT JOIN depots d ON u.rowid = d.user_rowid " +
+            "LEFT JOIN objects_in_depot oid ON d.rowid = oid.depot_rowid " +
+            "LEFT JOIN objects o ON o.rowid = oid.object_rowid " +
             "WHERE u.email = ?;",
             email,
-            function(err, row) {
+            function (err, row) {
                 if (err) {
                     return res.status(500).json({
                         errors: {
                             status: 500,
-                            source: "/depots/show-depot",
+                            source: "/depots/view-depot",
                             title: "Database error",
                             detail: err.message
                         }
                     });
                 }
-                depot_data.push({user_id: row.user_id, username: row.username, balance: row.balance, item_id: row.item_id,
-                number_of_items: row.number_of_items, objname: row.objname, current_price: row.current_price});
-            }, function() {
-                // console.log(depot_contents);
-                    return res.json({ data: depot_data });
-            });
-        },
-        addFunds: function(res, body, token) {
-        const auth_data = jwt.verify(token, jwtSecret);
+                depot_contents.push({user_rowid: row.user_rowid,
+                    username: row.username, balance: row.balance, object_rowid: row.object_rowid,
+                    number_of_objects: row.number_of_objects, objname: row.objname, current_price: row.current_price});
+                }, function() {
+                    // console.log(depot_contents);
+                    return res.json({ data: depot_contents });
+                });
+    },
+
+    addFunds: function(res, body, my_token) {
+        const auth_data = jwt.verify(my_token, jwtSecret);
         const email = auth_data.email;
         const funds = body.funds;
 
-        db.get("SELECT u.id as user_id, d.balance, d.id as depot_id " +
+        db.get("SELECT u.rowid as user_rowid, d.balance, d.rowid as depot_rowid " +
             "FROM users u " +
-            "LEFT JOIN depots d ON u.id = d.user_id " +
+            "LEFT JOIN depots d ON u.rowid = d.user_rowid " +
             "WHERE u.email = ?;",
             email,
             (err, rows) => {
@@ -55,12 +62,12 @@ const depots = {
                     });
                 }
                 // console.log(rows);
-                if (rows.depot_id !== null) {
+                if (rows.depot_rowid !== null) {
                     const new_balance = parseInt(funds) + parseInt(rows.balance);
 
-                    db.get("UPDATE depots SET balance = ? WHERE id = ?",
+                    db.get("UPDATE depots SET balance = ? WHERE rowid = ?",
                     new_balance,
-                    rows.depot_id,
+                    rows.depot_rowid,
                     (err) => {
                         if (err) {
                             return res.status(500).json({
@@ -84,9 +91,9 @@ const depots = {
                     // Depot doesnt exist, create it
                     const new_balance = parseInt(funds);
 
-                    db.get("INSERT INTO depots (balance, user_id) VALUES (?,?)",
+                    db.get("INSERT INTO depots (balance, user_rowid) VALUES (?,?)",
                     new_balance,
-                    rows.user_id,
+                    rows.user_rowid,
                     (err) => {
                         if (err) {
                             return res.status(500).json({
@@ -110,5 +117,6 @@ const depots = {
             }
         );
     }
-}
+};
+
 module.exports = depots;

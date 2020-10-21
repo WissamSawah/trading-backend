@@ -1,3 +1,6 @@
+/* eslint-disable camelcase */
+/* eslint-disable max-len */
+
 const db = require("../db/database.js");
 const jwt = require('jsonwebtoken');
 const jwtSecret = "averylongpassword";
