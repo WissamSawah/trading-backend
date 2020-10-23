@@ -6,10 +6,10 @@ const jwtSecret = "averylongpassword";
 
 const auths = {
     register: function(res, body) {
-        console.log(body);
+        const name = body.name;
+        const lastname = body.lastname;
         const email = body.email;
         const password = body.password;
-        const name = body.name;
 
         if (!email || !password) {
             return res.status(401).json({
@@ -21,10 +21,9 @@ const auths = {
                 }
             });
         }
-        // console.log("hashing pass: " + password)
+
         bcrypt.hash(password, 10, function(err, hash) {
             if (err) {
-                // console.log("hash error: " + hash)
                 return res.status(500).json({
                     errors: {
                         status: 500,
@@ -35,12 +34,27 @@ const auths = {
                 });
             }
 
-            db.run("INSERT INTO users (name, email, password) VALUES (?, ?, ?)",
-                name,
-                email,
-                hash, (err) => {
+            db.run("INSERT INTO users (name, lastname, "
+            + "email, password) VALUES (?, ?, ?, ?)",
+            name,
+            lastname,
+            email,
+            hash, (err) => {
+                if (err) {
+                    return res.status(500).json({
+                        errors: {
+                            status: 500,
+                            source: "/register",
+                            title: "Database error",
+                            detail: err.message
+                        }
+                    });
+                }
+                // Create depot for user
+                db.run("INSERT INTO depots (user_email) " +
+                "VALUES (?)",
+                email, (err) => {
                     if (err) {
-                        console.log("db error: " + err.message);
                         return res.status(500).json({
                             errors: {
                                 status: 500,
@@ -50,13 +64,13 @@ const auths = {
                             }
                         });
                     }
-
-                    return res.status(201).json({
-                        data: {
-                            message: "User have successfully registered."
-                        }
-                    });
+                })
+                return res.status(201).json({
+                    data: {
+                        message: "User successfully registered."
+                    }
                 });
+            });
         });
     },
 
@@ -119,12 +133,11 @@ const auths = {
                         let jwtToken = jwt.sign(payload, jwtSecret, { expiresIn: '24h' });
 
                         return res.json({
-                            data: {
-                                type: "success",
-                                message: "User logged in",
-                                user: payload,
-                                token: jwtToken
-                            }
+                            
+                            type: "success",
+                            message: "User logged in",
+                            user: payload,
+                            token: jwtToken
                         });
                     }
 
@@ -138,6 +151,47 @@ const auths = {
                     });
                 });
             });
+    },
+
+    checkToken: function(req, res, next) {
+        var token = req.headers['x-access-token'];
+
+        if (token) {
+            jwt.verify(token, jwtSecret, function(err, decoded) {
+                if (err) {
+                    return res.status(500).json({
+                        errors: {
+                            status: 500,
+                            source: req.path,
+                            title: "Failed authentication",
+                            detail: err.message
+                        }
+                    });
+                }
+
+                req.user = {};
+                req.user.email = decoded.email;
+                next();
+
+                return undefined;
+            });
+        } else {
+            return res.status(401).json({
+                errors: {
+                    status: 401,
+                    source: req.path,
+                    title: "No token",
+                    detail: "No token provided in request headers"
+                }
+            });
+        }
+    },
+    ValidTokenResponse: function(req, res) {
+        return res.json({
+            status: 200,
+            type: "success",
+            message: "Valid token"
+        });
     }
 };
 

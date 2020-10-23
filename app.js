@@ -1,60 +1,24 @@
-const bodyParser = require("body-parser");
 const express = require("express");
+const bodyParser = require("body-parser");
 const cors = require('cors');
 const morgan = require('morgan');
+
 const app = express();
-const port = 8888;
-const servers = require('http').createServer(app);
-const io = require('socket.io')(servers);
+const http = require('http').createServer(app);
+const io = require('socket.io')(http);
 
-const index = require('./routes/index');
 const auth = require('./routes/auths');
-const objects = require('./routes/objects');
 const depots = require('./routes/depots');
-const objectsModel = require('./modules/objects');
+const objects = require('./routes/objects');
+const stock = require("./stock");
 
-const socketPort = 8333;
+
+// Config with environment variables
+require('dotenv').config();
+
+const port = 1337;
 
 app.use(cors());
-app.use(bodyParser.json()); // for parsing application/json
-app.use(bodyParser.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
-
-io.origins(['https://trading.wissamsawah.me:443']);
-
-// Routes
-app.use('/', index);
-app.use('/auth', auth);
-app.use('/objects', objects);
-app.use('/depots', depots);
-
-// Socket for simulate price
-io.on('connection', function(socket) {
-    console.log('a user connected');
-    socket.on('disconnect', function() {
-        console.log('user disconnected');
-    });
-});
-
-function pricesUpdated(items) {
-    io.emit("newPrices", items);
-    // console.log(items);
-}
-
-setInterval(function () {
-    // Update prices, providing callback
-    objectsModel.updatePrices(pricesUpdated);
-}, 5000);
-
-
-// Add routes for 404 and error handling
-// Catch 404 and forward to error handler
-// Put this last
-app.use((req, res, next) => {
-    var err = new Error("Not Found");
-
-    err.status = 404;
-    next(err);
-});
 
 // don't show the log when it is test
 if (process.env.NODE_ENV !== 'test') {
@@ -62,9 +26,99 @@ if (process.env.NODE_ENV !== 'test') {
     app.use(morgan('combined')); // 'combined' outputs the Apache style LOGs
 }
 
-// Start up server
-const server = app.listen(port, () => console.log(`Backend is listening to ${port}!`));
+// This is middleware called for all routes.
+// Middleware takes three parameters.
+app.use((req, res, next) => {
+    console.log(req.method);
+    console.log(req.path);
+    next();
+});
 
-servers.listen(socketPort);
+app.use(bodyParser.json()); // for parsing application/json
+app.use(bodyParser.urlencoded({ extended: true })); // for parsing application/x-www-form-urlencoded
+
+app.use('/auth', auth);
+app.use('/depots', depots);
+app.use('/objects', objects);
+
+
+app.use((req, res, next) => {
+    var err = new Error("Not Found");
+
+    err.status = 404;
+    next(err);
+});
+
+app.use((err, req, res, next) => {
+    if (res.headersSent) {
+        return next(err);
+    }
+
+    res.status(err.status || 500).json({
+        "errors": [
+            {
+                "status": err.status,
+                "title":  err.message,
+                "detail": err.message,
+                "detail": err.message
+            }
+        ]
+    });
+});
+
+var apple = {
+    name: "Apple",
+    data: [],
+    range: {
+        min: 440,
+        max: 500
+    }
+};
+
+var samsung = {
+    name: "Samsung",
+    data: [],
+    range: {
+        min: 100,
+        max: 200,
+    }
+};
+
+var nasdaq = {
+    name: "Nasdaq",
+    data: [],
+    range: {
+        min: 300,
+        max: 500,
+    }
+};
+
+var stockObjects = [apple, samsung, nasdaq];
+
+
+io.on('connection', function(socket) {
+    console.log('a user connected');
+    socket.on('disconnect', function() {
+        console.log('user disconnected');
+    });
+});
+
+setInterval(function () {
+    if (apple.data.length > 50 || samsung.data.length > 50) {
+        apple.data = apple.data.slice(apple.data.length - 20, apple.data.length);
+        samsung.data = samsung.data.slice(samsung.data.length - 20, samsung.data.length);
+        nasdaq.data = nasdaq.data.slice(nasdaq.data.length - 20, nasdaq.data.length);
+    }
+    stockObjects.map((obj) => {
+        obj.data = stock.getNewSeries(obj.data, new Date().getTime(), obj.range
+        );
+        return obj;
+    });
+
+    io.emit("stocks", stockObjects);
+}, 5000);
+
+// Start up server
+const server = http.listen(port, () => console.log('Server listening on port ' + port));
 
 module.exports = server;

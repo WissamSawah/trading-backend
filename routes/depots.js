@@ -1,35 +1,15 @@
-const depots = require("../modules/depots.js");
-var express = require('express');
-var router = express.Router();
+const express = require('express');
+const router = express.Router();
 
-const jwt = require('jsonwebtoken');
-const jwtSecret = "averylongpassword";
+const auth = require("../modules/auths");
+const depots = require("../modules/depots");
 
-router.get("/view-depot",
-    (req, res, next) => checkToken(req, res, next),
-    (req, res) => depots.viewDepot(res, req.body, req.headers['x-access-token']));
+router.get("/view",
+    (req, res, next) => auth.checkToken(req, res, next),
+    (req, res) => depots.view(res, req));
 
-router.post("/add-funds",
-    (req, res, next) => checkToken(req, res, next),
-    (req, res) => depots.addFunds(res, req.body, req.headers['x-access-token']));
-
-function checkToken(req, res, next) {
-    const token = req.headers['x-access-token'];
-
-    jwt.verify(token, jwtSecret, function(err) {
-        if (err) {
-            return res.status(401).json({
-                errors: {
-                    status: 401,
-                    source: "/objects",
-                    title: "Unauthorized",
-                    detail: err.message
-                }
-            });
-        }
-        // Valid token send on the request
-        next();
-    });
-}
+router.put("/",
+    (req, res, next) => auth.checkToken(req, res, next),
+    (req, res) => depots.update(res, req));
 
 module.exports = router;

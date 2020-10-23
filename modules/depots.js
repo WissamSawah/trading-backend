@@ -1,122 +1,98 @@
-/* eslint-disable camelcase */
-/* eslint-disable max-len */
-
 const db = require("../db/database.js");
-const jwt = require('jsonwebtoken');
-const jwtSecret = "averylongpassword";
 
-const depots = {
-    viewDepot: function(res, body, my_token) {
-        const auth_data = jwt.verify(my_token, jwtSecret);
-        const email = auth_data.email;
-        var depot_contents = [];
+// Config with environment variables
+require('dotenv').config();
 
-        console.log(email);
-
-        db.each("SELECT u.rowid as user_rowid, u.name as username, d.balance, d.rowid as depot_rowid, object_rowid, number_of_objects, o.name as objname, o.current_price " +
-            "FROM users u " +
-            "LEFT JOIN depots d ON u.rowid = d.user_rowid " +
-            "LEFT JOIN objects_in_depot oid ON d.rowid = oid.depot_rowid " +
-            "LEFT JOIN objects o ON o.rowid = oid.object_rowid " +
-            "WHERE u.email = ?;",
-            email,
-            function (err, row) {
-                if (err) {
-                    return res.status(500).json({
-                        errors: {
-                            status: 500,
-                            source: "/depots/view-depot",
-                            title: "Database error",
-                            detail: err.message
-                        }
-                    });
-                }
-                depot_contents.push({user_rowid: row.user_rowid,
-                    username: row.username, balance: row.balance, object_rowid: row.object_rowid,
-                    number_of_objects: row.number_of_objects, objname: row.objname, current_price: row.current_price});
-                }, function() {
-                    // console.log(depot_contents);
-                    return res.json({ data: depot_contents });
-                });
-    },
-
-    addFunds: function(res, body, my_token) {
-        const auth_data = jwt.verify(my_token, jwtSecret);
-        const email = auth_data.email;
-        const funds = body.funds;
-
-        db.get("SELECT u.rowid as user_rowid, d.balance, d.rowid as depot_rowid " +
-            "FROM users u " +
-            "LEFT JOIN depots d ON u.rowid = d.user_rowid " +
-            "WHERE u.email = ?;",
-            email,
+const depot = {
+    view: function(res, req) {
+        let objectContent = [];
+        
+        db.all("SELECT " +
+            "u.email AS user_email, " +
+            "d.balance, " +
+            "d.user_email AS depot_email, " +
+            "object_rowid, " +
+            "amount, " +
+            "o.name AS object_name " +
+            "FROM users AS u " +
+            "LEFT JOIN depots AS d ON u.email = d.user_email " +
+            "LEFT JOIN objects_in_depot AS oid ON d.user_email = oid.depot_email " +
+            "LEFT JOIN objects AS o ON o.rowid = oid.object_rowid " +
+            "WHERE u.email = ?", 
+            req.user.email,
             (err, rows) => {
                 if (err) {
                     return res.status(500).json({
                         errors: {
                             status: 500,
-                            source: "/depots/add-funds",
+                            source: "/login",
                             title: "Database error",
                             detail: err.message
                         }
                     });
                 }
-                // console.log(rows);
-                if (rows.depot_rowid !== null) {
-                    const new_balance = parseInt(funds) + parseInt(rows.balance);
+                rows.forEach( row => {
+                    if(row.amount) {
+                        objectContent.push(
+                            {
+                                name: row.object_name,
+                                amount: row.amount
+                            })
+                    }
+                })
+                return res.status(200).json({
+                    email: rows[0].user_email,
+                    balance: rows[0].balance,
+                    objects: objectContent
+                });
+        })
+    },
+    update: function(res, req) {
+        sql = "UPDATE depots SET balance = ?" +
+        " WHERE user_email = ?";
 
-                    db.get("UPDATE depots SET balance = ? WHERE rowid = ?",
-                    new_balance,
-                    rows.depot_rowid,
-                    (err) => {
-                        if (err) {
-                            return res.status(500).json({
-                                errors: {
-                                    status: 500,
-                                    source: "/depots/add-funds",
-                                    title: "Database error",
-                                    detail: err.message
-                                }
-                            });
-                        } else {
-                            return res.status(201).json({
-                                data: {
-                                    new_balance: new_balance,
-                                    message: funds + " has been added to your balance. Your new balance is " + new_balance
-                                }
-                            });
-                        }
-                    });
-                } else {
-                    // Depot doesnt exist, create it
-                    const new_balance = parseInt(funds);
-
-                    db.get("INSERT INTO depots (balance, user_rowid) VALUES (?,?)",
-                    new_balance,
-                    rows.user_rowid,
-                    (err) => {
-                        if (err) {
-                            return res.status(500).json({
-                                errors: {
-                                    status: 500,
-                                    source: "/depots/add-funds",
-                                    title: "Database error",
-                                    detail: err.message
-                                }
-                            });
-                        } else {
-                            return res.status(201).json({
-                                data: {
-                                    new_balance: new_balance,
-                                    message: funds + " has been added to your balance. Your new balance is " + new_balance
-                                }
-                            });
+        db.run(
+            sql,
+            req.body.balance,
+            req.user.email,
+            function (err) {
+                if (err) {
+                    return res.status(500).json({
+                        error: {
+                            status: 500,
+                            path: "PUT /depots UPDATE",
+                            title: "Database error",
+                            message: err.message
                         }
                     });
                 }
-            }
-        );
-    }
-};
 
-module.exports = depots;
+                return res.status(204).send();
+            });
+    },
+    // Update balance without returning res.status
+    updateBalance: function(req, res) {
+        sql = "UPDATE depots SET balance = ?" +
+        " WHERE user_email = ?";
+
+        db.run(
+            sql,
+            req.body.balance,
+            req.user.email,
+            function (err) {
+                if (err) {
+                    return res.status(500).json({
+                        error: {
+                            status: 500,
+                            path: "PUT /depots UPDATE",
+                            title: "Database error",
+                            message: err.message
+                        }
+                    });
+                }
+                return null;
+            });
+    }
+}
+
+module.exports = depot;
