@@ -2,10 +2,13 @@ INSERT INTO users (name, lastname, email, password)
 VALUES ("Test", "Testsson", "test@test.test", "testtest");
 
 INSERT INTO objects (name, price)
-VALUES ("gold", 457.69);
+VALUES ("apple", 457.69);
 
 INSERT INTO objects (name, price)
-VALUES ("silver", 5.43);
+VALUES ("samsung", 5.43);
+
+INSERT INTO objects (name, price)
+VALUES ("nasdaq", 5.43);
 
 INSERT INTO depots (user_email, balance)
 VALUES ("test@test.test", 1000);

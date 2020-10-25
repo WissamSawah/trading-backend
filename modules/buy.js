@@ -3,7 +3,7 @@ const depots = require("./depots");
 
 const objects = require("./objects")
 
-const buyObjects = { 
+const buyObjects = {
     buy: function(req, res) {
 
         if (!req.body.objectId || !req.body.price) {
@@ -50,7 +50,7 @@ const buyObjects = {
                     depots.updateBalance(req, res)
                     objects.updateOid(req, res)
                     return res.status(200).json({
-                        message: `Bought ${buyAmount} ${name} for ${objectPrice} kr.`
+                        message: `You have bought ${buyAmount} ${name} stock/s for ${objectPrice} kr.`
                     })
                 } else {
                     return res.json({
@@ -91,7 +91,7 @@ const buyObjects = {
                             objects.addOid(req, res)
 
                             return res.json({
-                                message: `Bought ${buyAmount} ${name} for ${objectPrice} kr.`
+                                message: `You have bought ${buyAmount} ${name} stock/s for ${objectPrice} kr.`
                             })
 
                         // Not enough balance

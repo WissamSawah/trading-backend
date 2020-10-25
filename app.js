@@ -10,7 +10,7 @@ const io = require('socket.io')(http);
 const auth = require('./routes/auths');
 const depots = require('./routes/depots');
 const objects = require('./routes/objects');
-const stock = require("./stock");
+const stock = require("./modules/stock");
 
 
 // Config with environment variables
@@ -110,7 +110,7 @@ setInterval(function () {
         nasdaq.data = nasdaq.data.slice(nasdaq.data.length - 20, nasdaq.data.length);
     }
     stockObjects.map((obj) => {
-        obj.data = stock.getNewSeries(obj.data, new Date().getTime(), obj.range
+        obj.data = stock.getNewValue(obj.data, new Date().getTime(), obj.range
         );
         return obj;
     });
